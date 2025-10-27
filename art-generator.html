@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מחולל יצירות אמנות | Art Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Assistant', sans-serif;
+        }
+        
+        .color-strip {
+            transition: all 0.3s ease;
+        }
+        
+        .color-strip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .canvas-container {
+            background: #f9fafb;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Parse color palette string
+        const parseColorPalette = (paletteString) => {
+            const colors = paletteString.split(',').map(item => {
+                const parts = item.trim().split(' ');
+                return {
+                    hex: parts[0],
+                    percentage: parseFloat(parts[1])
+                };
+            });
+            return colors;
+        };
+        
+        // Artists data
+        const artists = [
+            { id: 1, name: "Wassily Kandinsky", style: "Abstract Art", characteristics: "spiritual resonance, color theory, geometric forms" },
+            { id: 2, name: "Piet Mondrian", style: "De Stijl, Neoplasticism", characteristics: "primary colors, grid, horizontal vertical lines" },
+            { id: 3, name: "Paul Klee", style: "Bauhaus, Expressionism", characteristics: "childlike imagination, symbols, musical theory" },
+            { id: 4, name: "Mark Rothko", style: "Abstract Expressionism", characteristics: "large color blocks, soft edges, emotional depth" },
+            { id: 5, name: "Yayoi Kusama", style: "Contemporary, Pop Art", characteristics: "polka dots, infinity nets, repetitive patterns" },
+            { id: 6, name: "Joan Miró", style: "Surrealism, Abstract", characteristics: "biomorphic forms, dreamlike, playful symbols" }
+        ];
+        
+        const artisticStyles = [
+            { id: 1, name: "Geometric Abstraction", keywords: "geometric abstraction, clean lines, sharp forms" },
+            { id: 2, name: "Abstract Expressionism", keywords: "expressive brushstrokes, emotional, gestural" },
+            { id: 3, name: "Bauhaus Style", keywords: "functional, minimalist, primary forms" },
+            { id: 4, name: "Color Field", keywords: "large areas of color, soft edges, meditative" },
+            { id: 5, name: "Op Art", keywords: "optical illusion, geometric patterns, vibrating" }
+        ];
+        
+        const compositionStyles = [
+            { id: 1, name: "Dynamic Asymmetrical", effect: "תנועה ואנרגיה" },
+            { id: 2, name: "Harmonious Symmetrical", effect: "שלווה ויציבות" },
+            { id: 3, name: "Radial Burst", effect: "אנרגיה מרכזית" },
+            { id: 4, name: "Grid Structure", effect: "סדר ומבנה" },
+            { id: 5, name: "Spiral Vortex", effect: "מערבולת" }
+        ];
+        
+        const executionStyles = [
+            { id: 1, name: "Visible Impasto", type: "טקסטורה" },
+            { id: 2, name: "Sharp Vector", type: "דיוק" },
+            { id: 3, name: "Soft Gradient Blend", type: "זרימה" },
+            { id: 4, name: "Layered Transparency", type: "עומק" },
+            { id: 5, name: "Vibrating Klang", type: "רטט" }
+        ];
+        
+        // Main App Component
+        function ArtGeneratorApp() {
+            const [colorPalette, setColorPalette] = useState("#B794D6 33.3%, #B87575 19.8%, #eac739 18.2%, #7B7FBB 3.4%, #917759 3.4%, #FFF5E1 3.0%, #73BDD3 2.0%");
+            const [parsedColors, setParsedColors] = useState([]);
+            const [selectedArtist, setSelectedArtist] = useState(null);
+            const [selectedArtistic, setSelectedArtistic] = useState(null);
+            const [selectedComposition, setSelectedComposition] = useState(null);
+            const [selectedExecution, setSelectedExecution] = useState(null);
+            const [isRandom, setIsRandom] = useState(false);
+            const [generatedArt, setGeneratedArt] = useState(null);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [seed, setSeed] = useState(null);
+            const canvasRef = useRef(null);
+            
+            useEffect(() => {
+                const colors = parseColorPalette(colorPalette);
+                setParsedColors(colors);
+            }, [colorPalette]);
+            
+            const randomSelect = () => {
+                setIsRandom(true);
+                setSelectedArtist(artists[Math.floor(Math.random() * artists.length)]);
+                setSelectedArtistic(artisticStyles[Math.floor(Math.random() * artisticStyles.length)]);
+                setSelectedComposition(compositionStyles[Math.floor(Math.random() * compositionStyles.length)]);
+                setSelectedExecution(executionStyles[Math.floor(Math.random() * executionStyles.length)]);
+            };
+            
+            const generateArt = () => {
+                if (!selectedArtist || !selectedArtistic || !selectedComposition || !selectedExecution) {
+                    alert('נא לבחור את כל הפרמטרים');
+                    return;
+                }
+                
+                setIsGenerating(true);
+                const newSeed = Date.now();
+                setSeed(newSeed);
+                
+                setTimeout(() => {
+                    drawArt(newSeed);
+                    setIsGenerating(false);
+                }, 1000);
+            };
+            
+            const drawArt = (useSeed) => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width = 800;
+                const height = canvas.height = 800;
+                
+                // Seed-based random
+                let seed = useSeed || Date.now();
+                const seededRandom = () => {
+                    seed = (seed * 9301 + 49297) % 233280;
+                    return seed / 233280;
+                };
+                
+                // Clear canvas
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Draw based on styles
+                const drawStyle = selectedArtistic.name;
+                const compStyle = selectedComposition.name;
+                const execStyle = selectedExecution.name;
+                
+                // Apply execution style
+                if (execStyle.includes('Impasto')) {
+                    ctx.lineWidth = 8;
+                } else if (execStyle.includes('Vector')) {
+                    ctx.lineWidth = 2;
+                } else if (execStyle.includes('Gradient')) {
+                    ctx.lineWidth = 1;
+                } else {
+                    ctx.lineWidth = 4;
+                }
+                
+                // Draw shapes based on composition
+                const numShapes = compStyle.includes('Sparse') ? 5 : compStyle.includes('Grid') ? 16 : 12;
+                
+                for (let i = 0; i < numShapes; i++) {
+                    // Select color from palette
+                    const colorIndex = Math.floor(seededRandom() * parsedColors.length);
+                    const color = parsedColors[colorIndex].hex;
+                    
+                    // Position based on composition
+                    let x, y, size;
+                    
+                    if (compStyle.includes('Grid')) {
+                        const cols = 4;
+                        const rows = 4;
+                        const cellW = width / cols;
+                        const cellH = height / rows;
+                        x = (i % cols) * cellW + cellW / 2;
+                        y = Math.floor(i / cols) * cellH + cellH / 2;
+                        size = Math.min(cellW, cellH) * 0.7;
+                    } else if (compStyle.includes('Radial')) {
+                        const angle = (i / numShapes) * Math.PI * 2;
+                        const radius = width * 0.3;
+                        x = width / 2 + Math.cos(angle) * radius;
+                        y = height / 2 + Math.sin(angle) * radius;
+                        size = 80 + seededRandom() * 60;
+                    } else if (compStyle.includes('Symmetrical')) {
+                        x = width / 2 + (seededRandom() - 0.5) * width * 0.4;
+                        y = height / 2 + (seededRandom() - 0.5) * height * 0.4;
+                        size = 60 + seededRandom() * 100;
+                    } else {
+                        x = seededRandom() * width;
+                        y = seededRandom() * height;
+                        size = 50 + seededRandom() * 120;
+                    }
+                    
+                    // Draw shape based on artistic style
+                    if (drawStyle.includes('Geometric')) {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x - size/2, y - size/2, size, size);
+                    } else if (drawStyle.includes('Expressionism')) {
+                        ctx.fillStyle = color;
+                        ctx.globalAlpha = 0.7;
+                        ctx.beginPath();
+                        for (let j = 0; j < 8; j++) {
+                            const angle = (j / 8) * Math.PI * 2;
+                            const r = size + (seededRandom() - 0.5) * size * 0.4;
+                            const px = x + Math.cos(angle) * r;
+                            const py = y + Math.sin(angle) * r;
+                            if (j === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                    } else if (drawStyle.includes('Op Art')) {
+                        ctx.strokeStyle = color;
+                        for (let r = 0; r < size; r += 10) {
+                            ctx.beginPath();
+                            ctx.arc(x, y, r, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                    } else {
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                setGeneratedArt(canvas.toDataURL());
+            };
+            
+            const downloadImage = () => {
+                if (!generatedArt) return;
+                const link = document.createElement('a');
+                link.download = `artwork-${seed}.png`;
+                link.href = generatedArt;
+                link.click();
+            };
+            
+            const shareImage = async () => {
+                if (!generatedArt) return;
+                
+                try {
+                    const blob = await (await fetch(generatedArt)).blob();
+                    const file = new File([blob], `artwork-${seed}.png`, { type: 'image/png' });
+                    
+                    if (navigator.share && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: 'יצירה אומנותית',
+                            text: 'יצירה שנוצרה באמצעות מחולל היצירות'
+                        });
+                    } else {
+                        alert('שיתוף אינו נתמך בדפדפן זה');
+                    }
+                } catch (error) {
+                    console.error('Error sharing:', error);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen p-8">
+                    <div className="max-w-7xl mx-auto">
+                        {/* Header */}
+                        <header className="text-center mb-12 floating">
+                            <h1 className="text-5xl font-bold gradient-text mb-4">🎨 מחולל יצירות אמנות</h1>
+                            <p className="text-xl text-gray-600">צור יצירות אומנות ייחודיות מפלטת הצבעים שלך</p>
+                        </header>
+                        
+                        {/* Color Palette Input */}
+                        <div className="glass-effect rounded-2xl p-8 mb-8 shadow-xl">
+                            <h2 className="text-2xl font-bold mb-4 text-gray-800">🎨 פלטת צבעים</h2>
+                            <textarea
+                                className="w-full p-4 border-2 border-purple-200 rounded-xl focus:border-purple-500 focus:outline-none transition-all"
+                                rows="3"
+                                value={colorPalette}
+                                onChange={(e) => setColorPalette(e.target.value)}
+                                placeholder="#B794D6 33.3%, #B87575 19.8%, ..."
+                            />
+                            
+                            {/* Color Preview */}
+                            <div className="mt-6 flex flex-wrap gap-2">
+                                {parsedColors.map((color, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="color-strip rounded-lg overflow-hidden shadow-md"
+                                        style={{ width: `${Math.max(color.percentage * 3, 40)}px`, height: '60px', backgroundColor: color.hex }}
+                                        title={`${color.hex} - ${color.percentage}%`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Left Column - Parameters */}
+                            <div>
+                                {/* Random/Manual Toggle */}
+                                <div className="glass-effect rounded-2xl p-6 mb-6 shadow-lg">
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => setIsRandom(false)}
+                                            className={`flex-1 py-3 rounded-xl font-semibold transition-all ${!isRandom ? 'bg-purple-600 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                                        >
+                                            בחירה ידנית
+                                        </button>
+                                        <button
+                                            onClick={randomSelect}
+                                            className={`flex-1 py-3 rounded-xl font-semibold transition-all ${isRandom ? 'bg-purple-600 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                                        >
+                                            🎲 בחירה אקראית
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Artist Selection */}
+                                <div className="glass-effect rounded-2xl p-6 mb-6 shadow-lg">
+                                    <h3 className="text-xl font-bold mb-4 text-gray-800">🎭 אמן השראה</h3>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {artists.map(artist => (
+                                            <button
+                                                key={artist.id}
+                                                onClick={() => setSelectedArtist(artist)}
+                                                className={`p-4 rounded-xl text-right transition-all ${selectedArtist?.id === artist.id ? 'bg-purple-600 text-white shadow-lg scale-105' : 'bg-white hover:bg-purple-50 text-gray-800'}`}
+                                            >
+                                                <div className="font-semibold text-sm">{artist.name}</div>
+                                                <div className="text-xs opacity-75 mt-1">{artist.style}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                {/* Artistic Style */}
+                                <div className="glass-effect rounded-2xl p-6 mb-6 shadow-lg">
+                                    <h3 className="text-xl font-bold mb-4 text-gray-800">🖼️ סגנון אמנותי</h3>
+                                    <div className="space-y-2">
+                                        {artisticStyles.map(style => (
+                                            <button
+                                                key={style.id}
+                                                onClick={() => setSelectedArtistic(style)}
+                                                className={`w-full p-3 rounded-xl text-right transition-all ${selectedArtistic?.id === style.id ? 'bg-blue-600 text-white shadow-lg' : 'bg-white hover:bg-blue-50 text-gray-800'}`}
+                                            >
+                                                <div className="font-semibold">{style.name}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                {/* Composition Style */}
+                                <div className="glass-effect rounded-2xl p-6 mb-6 shadow-lg">
+                                    <h3 className="text-xl font-bold mb-4 text-gray-800">📐 סגנון קומפוזיציה</h3>
+                                    <div className="space-y-2">
+                                        {compositionStyles.map(style => (
+                                            <button
+                                                key={style.id}
+                                                onClick={() => setSelectedComposition(style)}
+                                                className={`w-full p-3 rounded-xl text-right transition-all ${selectedComposition?.id === style.id ? 'bg-green-600 text-white shadow-lg' : 'bg-white hover:bg-green-50 text-gray-800'}`}
+                                            >
+                                                <div className="font-semibold">{style.name}</div>
+                                                <div className="text-sm opacity-75">{style.effect}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                {/* Execution Style */}
+                                <div className="glass-effect rounded-2xl p-6 mb-6 shadow-lg">
+                                    <h3 className="text-xl font-bold mb-4 text-gray-800">✨ סגנון ביצוע</h3>
+                                    <div className="space-y-2">
+                                        {executionStyles.map(style => (
+                                            <button
+                                                key={style.id}
+                                                onClick={() => setSelectedExecution(style)}
+                                                className={`w-full p-3 rounded-xl text-right transition-all ${selectedExecution?.id === style.id ? 'bg-pink-600 text-white shadow-lg' : 'bg-white hover:bg-pink-50 text-gray-800'}`}
+                                            >
+                                                <div className="font-semibold">{style.name}</div>
+                                                <div className="text-sm opacity-75">{style.type}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Right Column - Canvas */}
+                            <div>
+                                <div className="glass-effect rounded-2xl p-8 shadow-xl sticky top-8">
+                                    <h3 className="text-2xl font-bold mb-6 text-gray-800 text-center">🖼️ היצירה שלך</h3>
+                                    
+                                    {/* Canvas */}
+                                    <div className="canvas-container p-6 mb-6">
+                                        {isGenerating ? (
+                                            <div className="flex items-center justify-center h-96">
+                                                <div className="loading-spinner"></div>
+                                            </div>
+                                        ) : (
+                                            <canvas
+                                                ref={canvasRef}
+                                                className="w-full rounded-lg shadow-lg"
+                                                style={{ display: generatedArt ? 'block' : 'none' }}
+                                            />
+                                        )}
+                                        {!generatedArt && !isGenerating && (
+                                            <div className="flex items-center justify-center h-96 text-gray-400 text-xl">
+                                                היצירה תופיע כאן
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Generate Button */}
+                                    <button
+                                        onClick={generateArt}
+                                        disabled={isGenerating}
+                                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+                                    >
+                                        {isGenerating ? 'יוצר...' : '🎨 צור יצירה'}
+                                    </button>
+                                    
+                                    {/* Action Buttons */}
+                                    {generatedArt && (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <button
+                                                onClick={downloadImage}
+                                                className="bg-blue-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg transition-all transform hover:scale-105"
+                                            >
+                                                💾 הורדה
+                                            </button>
+                                            <button
+                                                onClick={shareImage}
+                                                className="bg-green-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg transition-all transform hover:scale-105"
+                                            >
+                                                📤 שיתוף
+                                            </button>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Seed Display */}
+                                    {seed && (
+                                        <div className="mt-4 text-center text-sm text-gray-600">
+                                            <span className="font-semibold">Seed:</span> {seed}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Render App
+        ReactDOM.render(<ArtGeneratorApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
