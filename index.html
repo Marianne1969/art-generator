@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 מחולל יצירות אמנות - Base44</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Assistant', sans-serif;
+        }
+        
+        .color-strip {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .color-strip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .canvas-container {
+            background: #f9fafb;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .selected-item {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 1000;
+        }
+        
+        .status-connected {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status-error {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .status-loading {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        @media (max-width: 640px) {
+            .glass-effect {
+                padding: 1rem !important;
+            }
+            
+            h1 {
+                font-size: 1.5rem !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 min-h-screen p-4">
+    <div id="root"></div>
+    
+    <script>
+        // ====================================================================
+        // הגדרות Base44 API
+        // ====================================================================
+        
+        const BASE44_CONFIG = {
+            // API Key מ-Base44
+            apiKey: '2997c114048b4a079e79b79450fb1cef',
+            
+            // App ID
+            appId: '68fbf36253b3ca76f4a1a247',
+            
+            // שמות הטבלאות
+            tables: {
+                artists: 'InspiredByArtist',
+                artisticStyles: 'ArtisticStyle',
+                compositionStyles: 'CompositionStyle',
+                executionStyles: 'ExecutionStyle'
+            }
+        };
+        
+        // ====================================================================
+        // פונקציות עזר
+        // ====================================================================
+        
+        function parseColorPalette(paletteString) {
+            const colors = paletteString.split(',').map(item => {
+                const parts = item.trim().split(' ');
+                return {
+                    hex: parts[0],
+                    percentage: parseFloat(parts[1])
+                };
+            });
+            return colors;
+        }
+        
+        // ====================================================================
+        // חיבור ל-Base44 API
+        // ====================================================================
+        
+        class Base44API {
+            constructor(config) {
+                this.config = config;
+                // נסה מספר אפשרויות של Base URL
+                this.possibleBaseUrls = [
+                    `https://api.base44.com/v1/apps/${config.appId}`,
+                    `https://app.base44.com/api/v1/apps/${config.appId}`,
+                    `https://api.base44.com/apps/${config.appId}`,
+                ];
+                this.baseUrl = this.possibleBaseUrls[0]; // התחל עם הראשון
+            }
+            
+            async fetchTable(tableName) {
+                // נסה את כל ה-URLs האפשריים
+                for (const baseUrl of this.possibleBaseUrls) {
+                    try {
+                        console.log(`Trying to fetch ${tableName} from ${baseUrl}`);
+                        
+                        const response = await fetch(
+                            `${baseUrl}/tables/${tableName}/records`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${this.config.apiKey}`,
+                                    'X-API-Key': this.config.apiKey,
+                                    'Content-Type': 'application/json'
+                                },
+                                mode: 'cors'
+                            }
+                        );
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            console.log(`✅ Successfully fetched ${tableName}:`, data);
+                            return data.records || data.data || data;
+                        }
+                        
+                        console.warn(`Failed with ${baseUrl}, status: ${response.status}`);
+                    } catch (error) {
+                        console.warn(`Error with ${baseUrl}:`, error.message);
+                    }
+                }
+                
+                // אם כל ה-URLs נכשלו
+                throw new Error(`Failed to fetch ${tableName} from all possible endpoints`);
+            }
+            
+            async loadAllData() {
+                try {
+                    console.log('🔄 מתחיל לטעון נתונים מ-Base44...');
+                    
+                    const [artists, artisticStyles, compositionStyles, executionStyles] = 
+                        await Promise.all([
+                            this.fetchTable(this.config.tables.artists),
+                            this.fetchTable(this.config.tables.artisticStyles),
+                            this.fetchTable(this.config.tables.compositionStyles),
+                            this.fetchTable(this.config.tables.executionStyles)
+                        ]);
+                    
+                    console.log('✅ כל הנתונים נטענו בהצלחה!');
+                    
+                    return {
+                        artists: this.filterActive(artists),
+                        artisticStyles: this.filterActive(artisticStyles),
+                        compositionStyles: this.filterActive(compositionStyles),
+                        executionStyles: this.filterActive(executionStyles)
+                    };
+                } catch (error) {
+                    console.error('❌ שגיאה בטעינת נתונים מ-Base44:', error);
+                    throw error;
+                }
+            }
+            
+            filterActive(items) {
+                if (!Array.isArray(items)) return [];
+                return items.filter(item => {
+                    // תמיכה בפורמטים שונים של נתונים
+                    const fields = item.fields || item;
+                    return fields.is_active !== false;
+                });
+            }
+        }
+        
+        // ====================================================================
+        // נתונים סטטיים לגיבוי (Fallback)
+        // ====================================================================
+        
+        function getFallbackData() {
+            console.warn('⚠️ משתמש בנתונים סטטיים (fallback)');
+            return {
+                artists: [
+                    { id: "1", fields: { name: "Wassily Kandinsky", style: "Abstract Art", key_characteristics: "spiritual resonance, color theory", is_active: true }},
+                    { id: "2", fields: { name: "Piet Mondrian", style: "De Stijl", key_characteristics: "primary colors, grid", is_active: true }},
+                    { id: "3", fields: { name: "Mark Rothko", style: "Color Field", key_characteristics: "large color blocks", is_active: true }},
+                    { id: "4", fields: { name: "Paul Klee", style: "Bauhaus, Expressionism", key_characteristics: "childlike, playful", is_active: true }},
+                    { id: "5", fields: { name: "Joan Miró", style: "Surrealism, Abstract", key_characteristics: "biomorphic forms", is_active: true }},
+                    { id: "6", fields: { name: "Yayoi Kusama", style: "Contemporary, Pop Art", key_characteristics: "dots, infinity", is_active: true }}
+                ],
+                artisticStyles: [
+                    { id: "1", fields: { name: "Geometric Abstraction", keywords: "geometric, clean lines", is_active: true }},
+                    { id: "2", fields: { name: "Abstract Expressionism", keywords: "expressive, emotional", is_active: true }}
+                ],
+                compositionStyles: [
+                    { id: "1", fields: { name: "Dynamic Asymmetrical", visual_effect: "תנועה ואנרגיה", is_active: true }},
+                    { id: "2", fields: { name: "Harmonious Symmetrical", visual_effect: "שלווה ויציבות", is_active: true }}
+                ],
+                executionStyles: [
+                    { id: "1", fields: { name: "Visible Impasto", movement_type: "טקסטורה", is_active: true }},
+                    { id: "2", fields: { name: "Sharp Vector", movement_type: "דיוק", is_active: true }}
+                ]
+            };
+        }
+        
+        // ====================================================================
+        // מחלקה ראשית - מנהל האפליקציה
+        // ====================================================================
+        
+        class ArtGenerator {
+            constructor() {
+                this.api = new Base44API(BASE44_CONFIG);
+                this.data = null;
+                this.connectionStatus = 'loading';
+                this.state = {
+                    colorPalette: "#B794D6 33.3%, #B87575 19.8%, #eac739 18.2%, #7B7FBB 3.4%, #917759 3.4%",
+                    parsedColors: [],
+                    selectedArtist: null,
+                    selectedArtistic: null,
+                    selectedComposition: null,
+                    selectedExecution: null,
+                    isRandom: false,
+                    generatedArt: null,
+                    isGenerating: false,
+                    seed: null
+                };
+                
+                this.canvas = null;
+                this.ctx = null;
+                
+                this.init();
+            }
+            
+            async init() {
+                console.log('🚀 מאתחל את מחולל היצירות...');
+                this.render();
+                
+                try {
+                    // בדיקה אם API Key הוגדר
+                    if (BASE44_CONFIG.apiKey === 'YOUR_BASE44_API_KEY_HERE') {
+                        throw new Error('API Key לא הוגדר');
+                    }
+                    
+                    this.connectionStatus = 'loading';
+                    this.updateConnectionStatus();
+                    
+                    this.data = await this.api.loadAllData();
+                    
+                    this.connectionStatus = 'connected';
+                    console.log('✅ התחברות ל-Base44 הצליחה!');
+                } catch (error) {
+                    console.error('❌ שגיאה בהתחברות ל-Base44:', error);
+                    this.connectionStatus = 'error';
+                    this.data = getFallbackData();
+                    console.log('⚠️ משתמש בנתונים סטטיים');
+                }
+                
+                this.state.parsedColors = parseColorPalette(this.state.colorPalette);
+                this.updateConnectionStatus();
+                this.render();
+                this.attachEventListeners();
+                console.log('✅ האתחול הושלם!');
+            }
+            
+            updateConnectionStatus() {
+                const statusEl = document.getElementById('connectionStatus');
+                if (!statusEl) return;
+                
+                statusEl.className = 'connection-status ';
+                
+                if (this.connectionStatus === 'connected') {
+                    statusEl.className += 'status-connected';
+                    statusEl.innerHTML = '✅ מחובר ל-Base44';
+                } else if (this.connectionStatus === 'error') {
+                    statusEl.className += 'status-error';
+                    statusEl.innerHTML = '⚠️ לא מחובר ל-Base44 (נתונים סטטיים)';
+                } else {
+                    statusEl.className += 'status-loading';
+                    statusEl.innerHTML = '⏳ מתחבר...';
+                }
+            }
+            
+            render() {
+                const root = document.getElementById('root');
+                if (!root) {
+                    console.error('❌ לא נמצא אלמנט #root');
+                    return;
+                }
+                
+                root.innerHTML = `
+                    <div id="connectionStatus" class="connection-status"></div>
+                    
+                    <div class="max-w-7xl mx-auto">
+                        <header class="text-center mb-8 floating">
+                            <h1 class="text-3xl md:text-5xl font-bold gradient-text mb-4">🎨 מחולל יצירות אמנות</h1>
+                            <p class="text-lg md:text-xl text-gray-600">צור יצירות אומנות ייחודיות מפלטת הצבעים שלך</p>
+                        </header>
+                        
+                        <div class="glass-effect rounded-2xl p-4 md:p-8 mb-6 shadow-xl">
+                            <h2 class="text-xl md:text-2xl font-bold mb-4 text-gray-800">🎨 פלטת צבעים</h2>
+                            <p class="text-sm text-gray-600 mb-3">הדביקי את פלטת הצבעים שלך כאן (פורמט: #HEX אחוז%, ...)</p>
+                            <textarea
+                                id="colorPaletteInput"
+                                class="w-full p-3 border-2 border-purple-200 rounded-xl focus:border-purple-500 focus:outline-none transition-all text-sm"
+                                rows="3"
+                                placeholder="#B794D6 33.3%, #B87575 19.8%, #eac739 18.2%, ..."
+                            >${this.state.colorPalette}</textarea>
+                            
+                            <div id="colorPreview" class="mt-6 flex flex-wrap gap-2">
+                                ${this.renderColorPreview()}
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div>
+                                <div class="glass-effect rounded-2xl p-4 mb-4 shadow-lg">
+                                    <div class="flex gap-2">
+                                        <button id="manualBtn" class="flex-1 py-2 rounded-xl font-semibold transition-all ${!this.state.isRandom ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}">
+                                            בחירה ידנית
+                                        </button>
+                                        <button id="randomBtn" class="flex-1 py-2 rounded-xl font-semibold transition-all ${this.state.isRandom ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}">
+                                            🎲 בחירה אקראית
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="glass-effect rounded-2xl p-4 mb-4 shadow-lg">
+                                    <h3 class="text-lg font-bold mb-4 text-gray-800">🎭 אמן השראה</h3>
+                                    <div class="grid grid-cols-2 gap-2">${this.renderArtists()}</div>
+                                </div>
+                                
+                                <div class="glass-effect rounded-2xl p-4 mb-4 shadow-lg">
+                                    <h3 class="text-lg font-bold mb-4 text-gray-800">🖼️ סגנון אמנותי</h3>
+                                    <div class="space-y-2">${this.renderArtisticStyles()}</div>
+                                </div>
+                                
+                                <div class="glass-effect rounded-2xl p-4 mb-4 shadow-lg">
+                                    <h3 class="text-lg font-bold mb-4 text-gray-800">📐 קומפוזיציה</h3>
+                                    <div class="space-y-2">${this.renderCompositionStyles()}</div>
+                                </div>
+                                
+                                <div class="glass-effect rounded-2xl p-4 mb-4 shadow-lg">
+                                    <h3 class="text-lg font-bold mb-4 text-gray-800">✨ ביצוע</h3>
+                                    <div class="space-y-2">${this.renderExecutionStyles()}</div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="glass-effect rounded-2xl p-4 shadow-xl lg:sticky lg:top-8">
+                                    <h3 class="text-xl font-bold mb-4 text-gray-800 text-center">🖼️ היצירה שלך</h3>
+                                    
+                                    <div class="canvas-container p-4 mb-4">
+                                        <div id="canvasWrapper" class="flex items-center justify-center">
+                                            ${this.state.isGenerating ? `
+                                                <div class="flex items-center justify-center h-64">
+                                                    <div class="loading-spinner"></div>
+                                                </div>
+                                            ` : this.state.generatedArt ? `
+                                                <canvas id="artCanvas" class="w-full rounded-lg shadow-lg max-w-full h-auto"></canvas>
+                                            ` : `
+                                                <div class="flex items-center justify-center h-64 text-gray-400 text-lg">
+                                                    היצירה תופיע כאן
+                                                </div>
+                                            `}
+                                        </div>
+                                    </div>
+                                    
+                                    <button
+                                        id="generateBtn"
+                                        class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 mb-4"
+                                        ${this.state.isGenerating ? 'disabled' : ''}
+                                    >
+                                        ${this.state.isGenerating ? 'יוצר...' : '🎨 צור יצירה'}
+                                    </button>
+                                    
+                                    ${this.state.generatedArt ? `
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <button id="downloadBtn" class="bg-blue-600 text-white font-semibold py-2 rounded-xl shadow-md hover:shadow-lg transition-all">
+                                                💾 הורדה
+                                            </button>
+                                            <button id="shareBtn" class="bg-green-600 text-white font-semibold py-2 rounded-xl shadow-md hover:shadow-lg transition-all">
+                                                📤 שיתוף
+                                            </button>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${this.state.seed ? `
+                                        <div class="mt-4 text-center text-sm text-gray-600">
+                                            <span class="font-semibold">Seed:</span> ${this.state.seed}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                this.updateConnectionStatus();
+                
+                if (this.state.generatedArt) {
+                    this.canvas = document.getElementById('artCanvas');
+                    if (this.canvas) {
+                        this.ctx = this.canvas.getContext('2d');
+                        const img = new Image();
+                        img.onload = () => {
+                            this.canvas.width = 800;
+                            this.canvas.height = 800;
+                            this.ctx.drawImage(img, 0, 0);
+                        };
+                        img.src = this.state.generatedArt;
+                    }
+                }
+            }
+            
+            renderColorPreview() {
+                return this.state.parsedColors.map((color, idx) => `
+                    <div
+                        class="color-strip rounded-lg overflow-hidden shadow-md"
+                        style="width: ${Math.max(color.percentage * 3, 40)}px; height: 60px; background-color: ${color.hex}"
+                        title="${color.hex} - ${color.percentage}%"
+                    ></div>
+                `).join('');
+            }
+            
+            renderArtists() {
+                if (!this.data || !this.data.artists) return '<p>טוען...</p>';
+                return this.data.artists.map(artist => `
+                    <button
+                        class="artist-btn p-3 rounded-xl text-right transition-all ${this.state.selectedArtist?.id === artist.id ? 'bg-purple-600 text-white selected-item' : 'bg-white hover:bg-purple-50 text-gray-800'}"
+                        data-id="${artist.id}"
+                    >
+                        <div class="font-semibold text-xs">${artist.fields.name}</div>
+                        <div class="text-xs opacity-75 mt-1">${artist.fields.style || ''}</div>
+                    </button>
+                `).join('');
+            }
+            
+            renderArtisticStyles() {
+                if (!this.data || !this.data.artisticStyles) return '<p>טוען...</p>';
+                return this.data.artisticStyles.map(style => `
+                    <button
+                        class="artistic-btn w-full p-2 rounded-xl text-right transition-all ${this.state.selectedArtistic?.id === style.id ? 'bg-blue-600 text-white selected-item' : 'bg-white hover:bg-blue-50 text-gray-800'}"
+                        data-id="${style.id}"
+                    >
+                        <div class="font-semibold text-sm">${style.fields.name}</div>
+                    </button>
+                `).join('');
+            }
+            
+            renderCompositionStyles() {
+                if (!this.data || !this.data.compositionStyles) return '<p>טוען...</p>';
+                return this.data.compositionStyles.map(style => `
+                    <button
+                        class="composition-btn w-full p-2 rounded-xl text-right transition-all ${this.state.selectedComposition?.id === style.id ? 'bg-green-600 text-white selected-item' : 'bg-white hover:bg-green-50 text-gray-800'}"
+                        data-id="${style.id}"
+                    >
+                        <div class="font-semibold text-sm">${style.fields.name}</div>
+                        <div class="text-xs opacity-75">${style.fields.visual_effect || ''}</div>
+                    </button>
+                `).join('');
+            }
+            
+            renderExecutionStyles() {
+                if (!this.data || !this.data.executionStyles) return '<p>טוען...</p>';
+                return this.data.executionStyles.map(style => `
+                    <button
+                        class="execution-btn w-full p-2 rounded-xl text-right transition-all ${this.state.selectedExecution?.id === style.id ? 'bg-pink-600 text-white selected-item' : 'bg-white hover:bg-pink-50 text-gray-800'}"
+                        data-id="${style.id}"
+                    >
+                        <div class="font-semibold text-sm">${style.fields.name}</div>
+                        <div class="text-xs opacity-75">${style.fields.movement_type || ''}</div>
+                    </button>
+                `).join('');
+            }
+            
+            attachEventListeners() {
+                const paletteInput = document.getElementById('colorPaletteInput');
+                if (paletteInput) {
+                    paletteInput.addEventListener('input', (e) => {
+                        this.state.colorPalette = e.target.value;
+                        this.state.parsedColors = parseColorPalette(this.state.colorPalette);
+                        document.getElementById('colorPreview').innerHTML = this.renderColorPreview();
+                    });
+                }
+                
+                document.getElementById('manualBtn')?.addEventListener('click', () => {
+                    this.state.isRandom = false;
+                    this.render();
+                    this.attachEventListeners();
+                });
+                
+                document.getElementById('randomBtn')?.addEventListener('click', () => {
+                    this.randomSelect();
+                });
+                
+                document.querySelectorAll('.artist-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        this.state.selectedArtist = this.data.artists.find(a => a.id === id);
+                        this.render();
+                        this.attachEventListeners();
+                    });
+                });
+                
+                document.querySelectorAll('.artistic-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        this.state.selectedArtistic = this.data.artisticStyles.find(s => s.id === id);
+                        this.render();
+                        this.attachEventListeners();
+                    });
+                });
+                
+                document.querySelectorAll('.composition-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        this.state.selectedComposition = this.data.compositionStyles.find(s => s.id === id);
+                        this.render();
+                        this.attachEventListeners();
+                    });
+                });
+                
+                document.querySelectorAll('.execution-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        this.state.selectedExecution = this.data.executionStyles.find(s => s.id === id);
+                        this.render();
+                        this.attachEventListeners();
+                    });
+                });
+                
+                document.getElementById('generateBtn')?.addEventListener('click', () => {
+                    this.generateArt();
+                });
+                
+                document.getElementById('downloadBtn')?.addEventListener('click', () => {
+                    this.downloadImage();
+                });
+                
+                document.getElementById('shareBtn')?.addEventListener('click', () => {
+                    this.shareImage();
+                });
+            }
+            
+            randomSelect() {
+                this.state.isRandom = true;
+                this.state.selectedArtist = this.data.artists[Math.floor(Math.random() * this.data.artists.length)];
+                this.state.selectedArtistic = this.data.artisticStyles[Math.floor(Math.random() * this.data.artisticStyles.length)];
+                this.state.selectedComposition = this.data.compositionStyles[Math.floor(Math.random() * this.data.compositionStyles.length)];
+                this.state.selectedExecution = this.data.executionStyles[Math.floor(Math.random() * this.data.executionStyles.length)];
+                this.render();
+                this.attachEventListeners();
+            }
+            
+            generateArt() {
+                if (!this.state.selectedArtist || !this.state.selectedArtistic || 
+                    !this.state.selectedComposition || !this.state.selectedExecution) {
+                    alert('נא לבחור את כל הפרמטרים');
+                    return;
+                }
+                
+                this.state.isGenerating = true;
+                this.state.seed = Date.now();
+                this.render();
+                this.attachEventListeners();
+                
+                setTimeout(() => {
+                    this.drawArt(this.state.seed);
+                    this.state.isGenerating = false;
+                    this.render();
+                    this.attachEventListeners();
+                }, 1000);
+            }
+            
+            drawArt(useSeed) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width = 800;
+                const height = canvas.height = 800;
+                
+                let seed = useSeed || Date.now();
+                const seededRandom = () => {
+                    seed = (seed * 9301 + 49297) % 233280;
+                    return seed / 233280;
+                };
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                
+                const drawStyle = this.state.selectedArtistic.fields.name;
+                const compStyle = this.state.selectedComposition.fields.name;
+                const execStyle = this.state.selectedExecution.fields.name;
+                
+                ctx.lineWidth = execStyle.includes('Impasto') ? 8 : execStyle.includes('Vector') ? 2 : 4;
+                
+                const numShapes = compStyle.includes('Sparse') ? 5 : compStyle.includes('Grid') ? 16 : 12;
+                
+                for (let i = 0; i < numShapes; i++) {
+                    const colorIndex = Math.floor(seededRandom() * this.state.parsedColors.length);
+                    const color = this.state.parsedColors[colorIndex].hex;
+                    
+                    let x, y, size;
+                    
+                    if (compStyle.includes('Grid')) {
+                        const cols = 4, rows = 4;
+                        const cellW = width / cols, cellH = height / rows;
+                        x = (i % cols) * cellW + cellW / 2;
+                        y = Math.floor(i / cols) * cellH + cellH / 2;
+                        size = Math.min(cellW, cellH) * 0.7;
+                    } else if (compStyle.includes('Radial')) {
+                        const angle = (i / numShapes) * Math.PI * 2;
+                        const radius = width * 0.3;
+                        x = width / 2 + Math.cos(angle) * radius;
+                        y = height / 2 + Math.sin(angle) * radius;
+                        size = 80 + seededRandom() * 60;
+                    } else {
+                        x = seededRandom() * width;
+                        y = seededRandom() * height;
+                        size = 50 + seededRandom() * 120;
+                    }
+                    
+                    ctx.fillStyle = color;
+                    if (drawStyle.includes('Geometric')) {
+                        ctx.fillRect(x - size/2, y - size/2, size, size);
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                this.state.generatedArt = canvas.toDataURL();
+            }
+            
+            downloadImage() {
+                if (!this.state.generatedArt) return;
+                const link = document.createElement('a');
+                link.download = `artwork-${this.state.seed}.png`;
+                link.href = this.state.generatedArt;
+                link.click();
+            }
+            
+            async shareImage() {
+                if (!this.state.generatedArt || !navigator.share) {
+                    alert('שיתוף לא נתמך בדפדפן זה');
+                    return;
+                }
+                
+                try {
+                    const blob = await (await fetch(this.state.generatedArt)).blob();
+                    const file = new File([blob], `artwork-${this.state.seed}.png`, { type: 'image/png' });
+                    await navigator.share({ files: [file], title: 'יצירה אומנותית' });
+                } catch (error) {
+                    console.error('Error sharing:', error);
+                }
+            }
+        }
+        
+        // ====================================================================
+        // אתחול האפליקציה
+        // ====================================================================
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                new ArtGenerator();
+            });
+        } else {
+            new ArtGenerator();
+        }
+    </script>
+</body>
+</html>
