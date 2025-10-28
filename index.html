@@ -661,54 +661,702 @@
                     return seed / 233280;
                 };
                 
-                // Get artist name
+                // Get all style parameters
                 const artistName = this.state.selectedArtist?.fields?.name || 'Wassily Kandinsky';
+                const artisticStyle = this.state.selectedArtistic?.fields?.name || 'Geometric Abstraction';
+                const compositionStyle = this.state.selectedComposition?.fields?.name || 'Dynamic Asymmetrical';
+                const executionStyle = this.state.selectedExecution?.fields?.name || 'Visible Impasto Brushstrokes';
                 const colors = this.state.parsedColors;
                 
-                // Draw based on artist style
+                // Clear canvas
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, width, height);
                 
-                // Artist-specific drawing
+                // Create style object
+                const styleParams = {
+                    artistic: artisticStyle,
+                    composition: compositionStyle,
+                    execution: executionStyle,
+                    colors: colors,
+                    rand: seededRandom,
+                    w: width,
+                    h: height
+                };
+                
+                // Draw based on artist with style modifiers
                 switch(artistName) {
                     case 'Wassily Kandinsky':
-                        this.drawKandinsky(ctx, width, height, colors, seededRandom);
+                        this.drawKandinskyStyled(ctx, styleParams);
                         break;
                     case 'Piet Mondrian':
-                        this.drawMondrian(ctx, width, height, colors, seededRandom);
+                        this.drawMondrianStyled(ctx, styleParams);
                         break;
                     case 'Mark Rothko':
-                        this.drawRothko(ctx, width, height, colors, seededRandom);
+                        this.drawRothkoStyled(ctx, styleParams);
                         break;
                     case 'Paul Klee':
-                        this.drawKlee(ctx, width, height, colors, seededRandom);
+                        this.drawKleeStyled(ctx, styleParams);
                         break;
                     case 'Joan Miró':
-                        this.drawMiro(ctx, width, height, colors, seededRandom);
+                        this.drawMiroStyled(ctx, styleParams);
                         break;
                     case 'Yayoi Kusama':
-                        this.drawKusama(ctx, width, height, colors, seededRandom);
+                        this.drawKusamaStyled(ctx, styleParams);
                         break;
                     case 'Jackson Pollock':
-                        this.drawPollock(ctx, width, height, colors, seededRandom);
+                        this.drawPollockStyled(ctx, styleParams);
                         break;
                     case 'Kazimir Malevich':
-                        this.drawMalevich(ctx, width, height, colors, seededRandom);
+                        this.drawMalevichStyled(ctx, styleParams);
                         break;
                     case 'Henri Matisse':
-                        this.drawMatisse(ctx, width, height, colors, seededRandom);
+                        this.drawMatisseStyled(ctx, styleParams);
                         break;
                     case 'Hilma af Klint':
-                        this.drawKlint(ctx, width, height, colors, seededRandom);
+                        this.drawKlintStyled(ctx, styleParams);
                         break;
                     case 'El Lissitzky':
-                        this.drawLissitzky(ctx, width, height, colors, seededRandom);
+                        this.drawLissitzkyStyled(ctx, styleParams);
                         break;
                     default:
-                        this.drawKandinsky(ctx, width, height, colors, seededRandom);
+                        this.drawKandinskyStyled(ctx, styleParams);
                 }
                 
                 this.state.generatedArt = canvas.toDataURL();
+            }
+            
+            // Helper: Get positions based on composition style
+            getPositions(comp, count, w, h, rand) {
+                const positions = [];
+                
+                if (comp.includes('Radial')) {
+                    // Radial from center
+                    const cx = w / 2, cy = h / 2;
+                    for (let i = 0; i < count; i++) {
+                        const angle = (i / count) * Math.PI * 2;
+                        const radius = (w * 0.35) * (0.3 + rand() * 0.7);
+                        positions.push({
+                            x: cx + Math.cos(angle) * radius,
+                            y: cy + Math.sin(angle) * radius
+                        });
+                    }
+                } else if (comp.includes('Clustered')) {
+                    // Clustered in center
+                    const cx = w / 2, cy = h / 2;
+                    for (let i = 0; i < count; i++) {
+                        positions.push({
+                            x: cx + (rand() - 0.5) * w * 0.4,
+                            y: cy + (rand() - 0.5) * h * 0.4
+                        });
+                    }
+                } else if (comp.includes('Sparse')) {
+                    // Few elements, well spaced
+                    for (let i = 0; i < count; i++) {
+                        positions.push({
+                            x: rand() * w,
+                            y: rand() * h
+                        });
+                    }
+                } else if (comp.includes('Symmetrical')) {
+                    // Mirror symmetry
+                    const half = Math.floor(count / 2);
+                    for (let i = 0; i < half; i++) {
+                        const x = rand() * w * 0.5;
+                        const y = rand() * h;
+                        positions.push({ x, y });
+                        positions.push({ x: w - x, y }); // Mirror
+                    }
+                } else if (comp.includes('Rhythmic')) {
+                    // Regular rhythm
+                    const cols = Math.ceil(Math.sqrt(count));
+                    for (let i = 0; i < count; i++) {
+                        const col = i % cols;
+                        const row = Math.floor(i / cols);
+                        positions.push({
+                            x: (col + 0.5) * (w / cols),
+                            y: (row + 0.5) * (h / cols)
+                        });
+                    }
+                } else {
+                    // Dynamic Asymmetrical - random
+                    for (let i = 0; i < count; i++) {
+                        positions.push({
+                            x: rand() * w,
+                            y: rand() * h
+                        });
+                    }
+                }
+                
+                return positions;
+            }
+            
+            // Helper: Apply execution style
+            applyExecution(ctx, exec, rand) {
+                if (exec.includes('Impasto')) {
+                    ctx.lineWidth = 8 + rand() * 6;
+                    ctx.shadowBlur = 4;
+                    return { lineWidth: ctx.lineWidth, alpha: 0.85, blur: 4 };
+                } else if (exec.includes('Vector')) {
+                    ctx.lineWidth = 1 + rand() * 1;
+                    ctx.shadowBlur = 0;
+                    return { lineWidth: ctx.lineWidth, alpha: 1, blur: 0 };
+                } else if (exec.includes('Sketchy')) {
+                    ctx.lineWidth = 2 + rand() * 2;
+                    ctx.shadowBlur = 0;
+                    return { lineWidth: ctx.lineWidth, alpha: 0.7, blur: 0 };
+                } else if (exec.includes('Motion')) {
+                    ctx.shadowBlur = 8;
+                    return { lineWidth: 4, alpha: 0.6, blur: 8 };
+                } else if (exec.includes('Vibrating')) {
+                    ctx.shadowBlur = 3;
+                    return { lineWidth: 2, alpha: 0.8, blur: 3 };
+                } else if (exec.includes('Transparencies')) {
+                    return { lineWidth: 2, alpha: 0.4, blur: 0 };
+                } else if (exec.includes('Monumental')) {
+                    ctx.lineWidth = 10;
+                    return { lineWidth: 10, alpha: 0.95, blur: 0 };
+                }
+                return { lineWidth: 4, alpha: 0.8, blur: 0 };
+            }
+            
+            // Kandinsky with styles
+            drawKandinskyStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution, artistic } = style;
+                
+                // Background
+                const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+                bgGrad.addColorStop(0, '#fffef9');
+                bgGrad.addColorStop(1, '#f8f5ed');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+                
+                const count = composition.includes('Sparse') ? 8 : composition.includes('Rhythmic') ? 16 : 12;
+                const positions = this.getPositions(composition, count, w, h, rand);
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                
+                // Draw circles based on artistic style
+                positions.forEach(pos => {
+                    const radius = rand() * 120 + 60;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.globalAlpha = execStyle.alpha * (0.4 + rand() * 0.4);
+                    ctx.shadowBlur = execStyle.blur;
+                    ctx.shadowColor = color.hex;
+                    
+                    if (artistic.includes('Geometric')) {
+                        // Sharp geometric circles
+                        ctx.fillStyle = color.hex;
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = colors[Math.floor(rand() * colors.length)].hex;
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, radius * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (artistic.includes('Expressionism')) {
+                        // Expressive organic shapes
+                        ctx.fillStyle = color.hex;
+                        ctx.beginPath();
+                        for (let i = 0; i < 8; i++) {
+                            const angle = (i / 8) * Math.PI * 2;
+                            const r = radius * (0.7 + rand() * 0.3);
+                            const x = pos.x + Math.cos(angle) * r;
+                            const y = pos.y + Math.sin(angle) * r;
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                    } else {
+                        // Default concentric
+                        for (let i = 3; i > 0; i--) {
+                            ctx.fillStyle = colors[Math.floor(rand() * colors.length)].hex;
+                            ctx.beginPath();
+                            ctx.arc(pos.x, pos.y, radius * (i / 3), 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                });
+                
+                // Add lines if expressionist
+                if (artistic.includes('Expressionism')) {
+                    ctx.globalAlpha = 0.6;
+                    for (let i = 0; i < 10; i++) {
+                        ctx.strokeStyle = colors[Math.floor(rand() * colors.length)].hex;
+                        ctx.lineWidth = execStyle.lineWidth;
+                        ctx.beginPath();
+                        ctx.moveTo(rand() * w, rand() * h);
+                        ctx.bezierCurveTo(
+                            rand() * w, rand() * h,
+                            rand() * w, rand() * h,
+                            rand() * w, rand() * h
+                        );
+                        ctx.stroke();
+                    }
+                }
+                
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Mondrian with styles
+            drawMondrianStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution } = style;
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                
+                // Grid density based on composition
+                const gridCount = composition.includes('Sparse') ? 2 : 
+                                 composition.includes('Rhythmic') ? 6 : 4;
+                
+                const vLines = [0];
+                for (let i = 0; i < gridCount; i++) {
+                    vLines.push(rand() * w * 0.8 + w * 0.1);
+                }
+                vLines.push(w);
+                vLines.sort((a, b) => a - b);
+                
+                const hLines = [0];
+                for (let i = 0; i < gridCount; i++) {
+                    hLines.push(rand() * h * 0.8 + h * 0.1);
+                }
+                hLines.push(h);
+                hLines.sort((a, b) => a - b);
+                
+                // Fill rectangles
+                for (let i = 0; i < vLines.length - 1; i++) {
+                    for (let j = 0; j < hLines.length - 1; j++) {
+                        const fillChance = composition.includes('Sparse') ? 0.3 : 0.6;
+                        if (rand() > fillChance) {
+                            ctx.fillStyle = colors[Math.floor(rand() * colors.length)].hex;
+                            ctx.globalAlpha = execStyle.alpha;
+                            ctx.fillRect(
+                                vLines[i] + execStyle.lineWidth,
+                                hLines[j] + execStyle.lineWidth,
+                                vLines[i + 1] - vLines[i] - execStyle.lineWidth * 2,
+                                hLines[j + 1] - hLines[j] - execStyle.lineWidth * 2
+                            );
+                        }
+                    }
+                }
+                
+                // Draw grid
+                ctx.globalAlpha = 1;
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = execStyle.lineWidth * 1.5;
+                vLines.forEach(x => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+                });
+                hLines.forEach(y => {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                });
+            }
+            
+            // Continue with other artists...
+            drawRothkoStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution } = style;
+                
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                const bands = composition.includes('Sparse') ? 2 : 
+                             composition.includes('Rhythmic') ? 4 : 3;
+                
+                const bandHeight = h / (bands + 1);
+                
+                for (let i = 0; i < bands; i++) {
+                    const y = bandHeight * (i + 0.5);
+                    const bh = bandHeight * (composition.includes('Clustered') ? 0.9 : 0.7);
+                    const color = colors[Math.min(i + 1, colors.length - 1)];
+                    
+                    const grad = ctx.createLinearGradient(0, y - bh/2, 0, y + bh/2);
+                    const alphaHex = Math.floor(execStyle.alpha * 221).toString(16).padStart(2, '0');
+                    grad.addColorStop(0, color.hex + '00');
+                    grad.addColorStop(0.1, color.hex + alphaHex);
+                    grad.addColorStop(0.9, color.hex + alphaHex);
+                    grad.addColorStop(1, color.hex + '00');
+                    
+                    ctx.fillStyle = grad;
+                    ctx.shadowBlur = execStyle.blur;
+                    ctx.shadowColor = color.hex;
+                    ctx.fillRect(w * 0.1, y - bh/2, w * 0.8, bh);
+                }
+                
+                ctx.shadowBlur = 0;
+            }
+            
+            // Klee with full style system
+            drawKleeStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution, artistic } = style;
+                
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                
+                // Grid density based on composition
+                const rows = composition.includes('Sparse') ? 8 : 
+                            composition.includes('Rhythmic') ? 20 : 15;
+                const cols = composition.includes('Sparse') ? 10 : 
+                            composition.includes('Rhythmic') ? 25 : 20;
+                const cellW = w / cols;
+                const cellH = h / rows;
+                
+                for (let i = 0; i < rows; i++) {
+                    for (let j = 0; j < cols; j++) {
+                        const x = j * cellW;
+                        const y = i * cellH;
+                        const color = colors[Math.floor(rand() * colors.length)];
+                        
+                        ctx.fillStyle = color.hex;
+                        ctx.globalAlpha = execStyle.alpha * (0.6 + rand() * 0.4);
+                        ctx.shadowBlur = execStyle.blur;
+                        
+                        // Shape based on artistic style
+                        if (artistic.includes('Geometric')) {
+                            ctx.fillRect(x + 2, y + 2, cellW - 4, cellH - 4);
+                        } else if (artistic.includes('Digital')) {
+                            ctx.fillRect(x + 1, y + 1, cellW - 2, cellH - 2);
+                        } else {
+                            const shapeType = Math.floor(rand() * 4);
+                            if (shapeType === 0) {
+                                ctx.fillRect(x + 2, y + 2, cellW - 4, cellH - 4);
+                            } else if (shapeType === 1) {
+                                ctx.beginPath();
+                                ctx.arc(x + cellW/2, y + cellH/2, Math.min(cellW, cellH)/3, 0, Math.PI * 2);
+                                ctx.fill();
+                            } else if (shapeType === 2) {
+                                ctx.beginPath();
+                                ctx.moveTo(x + cellW/2, y + 2);
+                                ctx.lineTo(x + 2, y + cellH - 2);
+                                ctx.lineTo(x + cellW - 2, y + cellH - 2);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Miró with full style system
+            drawMiroStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution, artistic } = style;
+                
+                const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+                bgGrad.addColorStop(0, '#fefdf5');
+                bgGrad.addColorStop(1, colors[0].hex + '33');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                const count = composition.includes('Sparse') ? 6 : 
+                             composition.includes('Clustered') ? 15 : 12;
+                const positions = this.getPositions(composition, count, w, h, rand);
+                
+                // Organic shapes
+                positions.forEach(pos => {
+                    const size = rand() * 100 + 70;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = execStyle.alpha * 0.75;
+                    ctx.shadowBlur = execStyle.blur;
+                    ctx.shadowColor = color.hex;
+                    ctx.beginPath();
+                    
+                    const points = artistic.includes('Geometric') ? 6 : 8;
+                    for (let j = 0; j < points; j++) {
+                        const angle = (j / points) * Math.PI * 2;
+                        const r = size * (0.7 + rand() * 0.3);
+                        const px = pos.x + Math.cos(angle) * r;
+                        const py = pos.y + Math.sin(angle) * r;
+                        if (j === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                });
+                
+                // Stars
+                const starCount = composition.includes('Sparse') ? 4 : 8;
+                ctx.globalAlpha = 0.9;
+                for (let i = 0; i < starCount; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const size = rand() * 25 + 20;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.beginPath();
+                    for (let j = 0; j < 5; j++) {
+                        const angle = (j * 4 * Math.PI) / 5 - Math.PI / 2;
+                        const r = j % 2 === 0 ? size : size / 2;
+                        const px = x + Math.cos(angle) * r;
+                        const py = y + Math.sin(angle) * r;
+                        if (j === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                // Lines
+                ctx.lineWidth = execStyle.lineWidth;
+                const lineCount = artistic.includes('Expressionism') ? 10 : 6;
+                for (let i = 0; i < lineCount; i++) {
+                    ctx.strokeStyle = colors[Math.floor(rand() * colors.length)].hex;
+                    ctx.beginPath();
+                    ctx.moveTo(rand() * w, rand() * h);
+                    ctx.quadraticCurveTo(rand() * w, rand() * h, rand() * w, rand() * h);
+                    ctx.stroke();
+                }
+                
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Kusama with full style system
+            drawKusamaStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution } = style;
+                
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                const dotCount = composition.includes('Sparse') ? 300 : 
+                                composition.includes('Rhythmic') ? 1000 : 800;
+                
+                for (let i = 0; i < dotCount; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const radius = rand() * 12 + 5;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = execStyle.alpha * (0.5 + rand() * 0.5);
+                    ctx.shadowBlur = execStyle.blur;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Pollock with full style system
+            drawPollockStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution, artistic } = style;
+                
+                ctx.fillStyle = '#f5f5f0';
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                const lineCount = composition.includes('Sparse') ? 80 : 
+                                 artistic.includes('Expressionism') ? 250 : 200;
+                
+                for (let i = 0; i < lineCount; i++) {
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    ctx.strokeStyle = color.hex;
+                    ctx.lineWidth = execStyle.lineWidth * (0.5 + rand());
+                    ctx.globalAlpha = execStyle.alpha * (0.3 + rand() * 0.5);
+                    ctx.shadowBlur = execStyle.blur;
+                    
+                    ctx.beginPath();
+                    let x = rand() * w;
+                    let y = rand() * h;
+                    ctx.moveTo(x, y);
+                    
+                    const steps = Math.floor(rand() * 15) + 10;
+                    for (let j = 0; j < steps; j++) {
+                        x += (rand() - 0.5) * 50;
+                        y += (rand() - 0.5) * 50;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Malevich with full style system
+            drawMalevichStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution, artistic } = style;
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                const count = composition.includes('Sparse') ? 4 : 8;
+                const positions = this.getPositions(composition, count, w, h, rand);
+                
+                positions.forEach(pos => {
+                    const size = rand() * 140 + 90;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    const angle = rand() * Math.PI / 4 - Math.PI / 8;
+                    
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.rotate(angle);
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = execStyle.alpha;
+                    ctx.shadowBlur = execStyle.blur;
+                    ctx.shadowColor = color.hex;
+                    
+                    if (artistic.includes('Geometric') || rand() > 0.5) {
+                        ctx.fillRect(-size/2, -size/2, size, size);
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, size/2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    ctx.restore();
+                });
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Matisse with full style system
+            drawMatisseStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution } = style;
+                
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                const count = composition.includes('Sparse') ? 5 : 10;
+                const positions = this.getPositions(composition, count, w, h, rand);
+                
+                positions.forEach(pos => {
+                    const size = rand() * 160 + 110;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = execStyle.alpha * 0.85;
+                    ctx.shadowBlur = execStyle.blur;
+                    ctx.beginPath();
+                    ctx.ellipse(pos.x, pos.y, size, size * 0.6, rand() * Math.PI, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Klint with full style system
+            drawKlintStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution } = style;
+                const cx = w / 2, cy = h / 2;
+                
+                const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h));
+                bgGrad.addColorStop(0, '#ffffff');
+                bgGrad.addColorStop(1, colors[0].hex + '33');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                
+                // Concentric circles
+                const rings = composition.includes('Sparse') ? 5 : 
+                             composition.includes('Rhythmic') ? 10 : 8;
+                for (let i = rings; i > 0; i--) {
+                    const radius = (Math.max(w, h) / 2) * (i / rings) * 0.8;
+                    const color = colors[i % colors.length];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = execStyle.alpha * (0.3 + (i / rings) * 0.5);
+                    ctx.shadowBlur = execStyle.blur;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Radial petals
+                const petals = composition.includes('Radial') ? 12 : 
+                              composition.includes('Rhythmic') ? 16 : 12;
+                for (let i = 0; i < petals; i++) {
+                    const angle = (i / petals) * Math.PI * 2;
+                    const x = cx + Math.cos(angle) * (w * 0.25);
+                    const y = cy + Math.sin(angle) * (h * 0.25);
+                    const size = Math.min(w, h) * 0.15;
+                    const color = colors[i % colors.length];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = execStyle.alpha * 0.7;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+            
+            // Lissitzky with full style system
+            drawLissitzkyStyled(ctx, style) {
+                const { w, h, colors, rand, composition, execution, artistic } = style;
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                
+                const execStyle = this.applyExecution(ctx, execution, rand);
+                const count = composition.includes('Sparse') ? 5 : 10;
+                const positions = this.getPositions(composition, count, w, h, rand);
+                
+                positions.forEach(pos => {
+                    const size = rand() * 180 + 90;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    const angle = rand() * Math.PI;
+                    
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.rotate(angle);
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = execStyle.alpha * 0.8;
+                    ctx.shadowBlur = execStyle.blur;
+                    
+                    const shapeType = Math.floor(rand() * 3);
+                    if (shapeType === 0 || artistic.includes('Geometric')) {
+                        ctx.fillRect(-size/2, -size/2, size, size * 0.6);
+                    } else if (shapeType === 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, -size/2);
+                        ctx.lineTo(-size/2, size/2);
+                        ctx.lineTo(size/2, size/2);
+                        ctx.closePath();
+                        ctx.fill();
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, size/2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                });
+                
+                // Diagonal lines
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = execStyle.lineWidth * 2;
+                ctx.globalAlpha = 0.3;
+                const lineCount = composition.includes('Sparse') ? 2 : 3;
+                for (let i = 0; i < lineCount; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(rand() * w, 0);
+                    ctx.lineTo(rand() * w, h);
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
             }
             
             // Kandinsky: Circles, curves, spiritual geometry
