@@ -661,52 +661,481 @@
                     return seed / 233280;
                 };
                 
+                // Get artist name
+                const artistName = this.state.selectedArtist?.fields?.name || 'Wassily Kandinsky';
+                const colors = this.state.parsedColors;
+                
+                // Draw based on artist style
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, width, height);
                 
-                const drawStyle = this.state.selectedArtistic.fields.name;
-                const compStyle = this.state.selectedComposition.fields.name;
-                const execStyle = this.state.selectedExecution.fields.name;
-                
-                ctx.lineWidth = execStyle.includes('Impasto') ? 8 : execStyle.includes('Vector') ? 2 : 4;
-                
-                const numShapes = compStyle.includes('Sparse') ? 5 : compStyle.includes('Grid') ? 16 : 12;
-                
-                for (let i = 0; i < numShapes; i++) {
-                    const colorIndex = Math.floor(seededRandom() * this.state.parsedColors.length);
-                    const color = this.state.parsedColors[colorIndex].hex;
-                    
-                    let x, y, size;
-                    
-                    if (compStyle.includes('Grid')) {
-                        const cols = 4, rows = 4;
-                        const cellW = width / cols, cellH = height / rows;
-                        x = (i % cols) * cellW + cellW / 2;
-                        y = Math.floor(i / cols) * cellH + cellH / 2;
-                        size = Math.min(cellW, cellH) * 0.7;
-                    } else if (compStyle.includes('Radial')) {
-                        const angle = (i / numShapes) * Math.PI * 2;
-                        const radius = width * 0.3;
-                        x = width / 2 + Math.cos(angle) * radius;
-                        y = height / 2 + Math.sin(angle) * radius;
-                        size = 80 + seededRandom() * 60;
-                    } else {
-                        x = seededRandom() * width;
-                        y = seededRandom() * height;
-                        size = 50 + seededRandom() * 120;
-                    }
-                    
-                    ctx.fillStyle = color;
-                    if (drawStyle.includes('Geometric')) {
-                        ctx.fillRect(x - size/2, y - size/2, size, size);
-                    } else {
-                        ctx.beginPath();
-                        ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
+                // Artist-specific drawing
+                switch(artistName) {
+                    case 'Wassily Kandinsky':
+                        this.drawKandinsky(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Piet Mondrian':
+                        this.drawMondrian(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Mark Rothko':
+                        this.drawRothko(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Paul Klee':
+                        this.drawKlee(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Joan Miró':
+                        this.drawMiro(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Yayoi Kusama':
+                        this.drawKusama(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Jackson Pollock':
+                        this.drawPollock(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Kazimir Malevich':
+                        this.drawMalevich(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Henri Matisse':
+                        this.drawMatisse(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'Hilma af Klint':
+                        this.drawKlint(ctx, width, height, colors, seededRandom);
+                        break;
+                    case 'El Lissitzky':
+                        this.drawLissitzky(ctx, width, height, colors, seededRandom);
+                        break;
+                    default:
+                        this.drawKandinsky(ctx, width, height, colors, seededRandom);
                 }
                 
                 this.state.generatedArt = canvas.toDataURL();
+            }
+            
+            // Kandinsky: Circles, curves, spiritual geometry
+            drawKandinsky(ctx, w, h, colors, rand) {
+                // Soft background
+                const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+                bgGrad.addColorStop(0, '#fffef9');
+                bgGrad.addColorStop(1, '#f8f5ed');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+                
+                // Concentric circles
+                for (let i = 0; i < 15; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const radius = rand() * 150 + 50;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.globalAlpha = 0.3 + rand() * 0.4;
+                    ctx.fillStyle = color.hex;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.globalAlpha = 0.6 + rand() * 0.4;
+                    ctx.fillStyle = colors[Math.floor(rand() * colors.length)].hex;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.globalAlpha = 0.9;
+                    ctx.fillStyle = colors[Math.floor(rand() * colors.length)].hex;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius * 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Curved lines
+                ctx.globalAlpha = 0.6;
+                for (let i = 0; i < 8; i++) {
+                    ctx.strokeStyle = colors[Math.floor(rand() * colors.length)].hex;
+                    ctx.lineWidth = rand() * 8 + 2;
+                    ctx.beginPath();
+                    ctx.moveTo(rand() * w, rand() * h);
+                    ctx.bezierCurveTo(
+                        rand() * w, rand() * h,
+                        rand() * w, rand() * h,
+                        rand() * w, rand() * h
+                    );
+                    ctx.stroke();
+                }
+                
+                // Triangles
+                for (let i = 0; i < 5; i++) {
+                    ctx.globalAlpha = 0.4 + rand() * 0.3;
+                    ctx.fillStyle = colors[Math.floor(rand() * colors.length)].hex;
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const size = rand() * 100 + 40;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - size/2);
+                    ctx.lineTo(x - size/2, y + size/2);
+                    ctx.lineTo(x + size/2, y + size/2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                ctx.globalAlpha = 1;
+            }
+            
+            // Mondrian: Grid with blocks
+            drawMondrian(ctx, w, h, colors, rand) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                
+                const vLines = [0];
+                for (let i = 0; i < 4; i++) {
+                    vLines.push(rand() * w * 0.8 + w * 0.1);
+                }
+                vLines.push(w);
+                vLines.sort((a, b) => a - b);
+                
+                const hLines = [0];
+                for (let i = 0; i < 4; i++) {
+                    hLines.push(rand() * h * 0.8 + h * 0.1);
+                }
+                hLines.push(h);
+                hLines.sort((a, b) => a - b);
+                
+                for (let i = 0; i < vLines.length - 1; i++) {
+                    for (let j = 0; j < hLines.length - 1; j++) {
+                        if (rand() > 0.6) {
+                            ctx.fillStyle = colors[Math.floor(rand() * colors.length)].hex;
+                            ctx.fillRect(
+                                vLines[i] + 6,
+                                hLines[j] + 6,
+                                vLines[i + 1] - vLines[i] - 12,
+                                hLines[j + 1] - hLines[j] - 12
+                            );
+                        }
+                    }
+                }
+                
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 12;
+                vLines.forEach(x => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+                });
+                hLines.forEach(y => {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                });
+            }
+            
+            // Rothko: Large color fields
+            drawRothko(ctx, w, h, colors, rand) {
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                const bands = Math.floor(rand() * 2) + 2;
+                const bandHeight = h / (bands + 1);
+                
+                for (let i = 0; i < bands; i++) {
+                    const y = bandHeight * (i + 0.5);
+                    const bh = bandHeight * 0.8;
+                    const color = colors[Math.min(i + 1, colors.length - 1)];
+                    
+                    const grad = ctx.createLinearGradient(0, y - bh/2, 0, y + bh/2);
+                    grad.addColorStop(0, color.hex + '00');
+                    grad.addColorStop(0.1, color.hex + 'dd');
+                    grad.addColorStop(0.9, color.hex + 'dd');
+                    grad.addColorStop(1, color.hex + '00');
+                    
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(w * 0.1, y - bh/2, w * 0.8, bh);
+                }
+            }
+            
+            // Paul Klee: Mosaic
+            drawKlee(ctx, w, h, colors, rand) {
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                const rows = 15, cols = 20;
+                const cellW = w / cols, cellH = h / rows;
+                
+                for (let i = 0; i < rows; i++) {
+                    for (let j = 0; j < cols; j++) {
+                        const x = j * cellW;
+                        const y = i * cellH;
+                        const color = colors[Math.floor(rand() * colors.length)];
+                        
+                        ctx.fillStyle = color.hex;
+                        ctx.globalAlpha = 0.7 + rand() * 0.3;
+                        
+                        const shapeType = Math.floor(rand() * 4);
+                        if (shapeType === 0) {
+                            ctx.fillRect(x + 2, y + 2, cellW - 4, cellH - 4);
+                        } else if (shapeType === 1) {
+                            ctx.beginPath();
+                            ctx.arc(x + cellW/2, y + cellH/2, Math.min(cellW, cellH)/3, 0, Math.PI * 2);
+                            ctx.fill();
+                        } else if (shapeType === 2) {
+                            ctx.beginPath();
+                            ctx.moveTo(x + cellW/2, y + 2);
+                            ctx.lineTo(x + 2, y + cellH - 2);
+                            ctx.lineTo(x + cellW - 2, y + cellH - 2);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+                }
+                ctx.globalAlpha = 1;
+            }
+            
+            // Miró: Organic shapes
+            drawMiro(ctx, w, h, colors, rand) {
+                const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+                bgGrad.addColorStop(0, '#fefdf5');
+                bgGrad.addColorStop(1, colors[0].hex + '33');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+                
+                for (let i = 0; i < 12; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const size = rand() * 120 + 60;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = 0.7;
+                    ctx.beginPath();
+                    
+                    const points = 6 + Math.floor(rand() * 4);
+                    for (let j = 0; j < points; j++) {
+                        const angle = (j / points) * Math.PI * 2;
+                        const r = size * (0.7 + rand() * 0.3);
+                        const px = x + Math.cos(angle) * r;
+                        const py = y + Math.sin(angle) * r;
+                        if (j === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                // Stars
+                ctx.globalAlpha = 0.9;
+                for (let i = 0; i < 8; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const size = rand() * 30 + 20;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.beginPath();
+                    for (let j = 0; j < 5; j++) {
+                        const angle = (j * 4 * Math.PI) / 5 - Math.PI / 2;
+                        const r = j % 2 === 0 ? size : size / 2;
+                        const px = x + Math.cos(angle) * r;
+                        const py = y + Math.sin(angle) * r;
+                        if (j === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                ctx.lineWidth = 3;
+                for (let i = 0; i < 6; i++) {
+                    ctx.strokeStyle = colors[Math.floor(rand() * colors.length)].hex;
+                    ctx.beginPath();
+                    ctx.moveTo(rand() * w, rand() * h);
+                    ctx.quadraticCurveTo(rand() * w, rand() * h, rand() * w, rand() * h);
+                    ctx.stroke();
+                }
+                
+                ctx.globalAlpha = 1;
+            }
+            
+            // Kusama: Dots
+            drawKusama(ctx, w, h, colors, rand) {
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                for (let i = 0; i < 800; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const radius = rand() * 15 + 5;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = 0.6 + rand() * 0.4;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+            
+            // Pollock: Drips
+            drawPollock(ctx, w, h, colors, rand) {
+                ctx.fillStyle = '#f5f5f0';
+                ctx.fillRect(0, 0, w, h);
+                
+                for (let i = 0; i < 200; i++) {
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    ctx.strokeStyle = color.hex;
+                    ctx.lineWidth = rand() * 4 + 1;
+                    ctx.globalAlpha = 0.3 + rand() * 0.5;
+                    
+                    ctx.beginPath();
+                    let x = rand() * w;
+                    let y = rand() * h;
+                    ctx.moveTo(x, y);
+                    
+                    const steps = Math.floor(rand() * 20) + 10;
+                    for (let j = 0; j < steps; j++) {
+                        x += (rand() - 0.5) * 50;
+                        y += (rand() - 0.5) * 50;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
+            
+            // Malevich: Suprematism
+            drawMalevich(ctx, w, h, colors, rand) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                
+                for (let i = 0; i < 8; i++) {
+                    const x = rand() * w * 0.7 + w * 0.15;
+                    const y = rand() * h * 0.7 + h * 0.15;
+                    const size = rand() * 150 + 80;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    const angle = rand() * Math.PI / 4 - Math.PI / 8;
+                    
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(angle);
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = 0.85;
+                    
+                    if (rand() > 0.5) {
+                        ctx.fillRect(-size/2, -size/2, size, size);
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, size/2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    ctx.restore();
+                }
+                ctx.globalAlpha = 1;
+            }
+            
+            // Matisse: Cutouts
+            drawMatisse(ctx, w, h, colors, rand) {
+                ctx.fillStyle = colors[0].hex;
+                ctx.fillRect(0, 0, w, h);
+                
+                for (let i = 0; i < 10; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const size = rand() * 180 + 100;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = 0.8;
+                    ctx.beginPath();
+                    ctx.ellipse(x, y, size, size * 0.6, rand() * Math.PI, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+            
+            // Hilma af Klint: Mandala
+            drawKlint(ctx, w, h, colors, rand) {
+                const cx = w / 2, cy = h / 2;
+                
+                const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h));
+                bgGrad.addColorStop(0, '#ffffff');
+                bgGrad.addColorStop(1, colors[0].hex + '33');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, w, h);
+                
+                for (let i = 8; i > 0; i--) {
+                    const radius = (Math.max(w, h) / 2) * (i / 8) * 0.8;
+                    const color = colors[i % colors.length];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = 0.3 + (i / 8) * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                const petals = 12;
+                for (let i = 0; i < petals; i++) {
+                    const angle = (i / petals) * Math.PI * 2;
+                    const x = cx + Math.cos(angle) * (w * 0.25);
+                    const y = cy + Math.sin(angle) * (h * 0.25);
+                    const size = Math.min(w, h) * 0.15;
+                    const color = colors[i % colors.length];
+                    
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = 0.6;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+            
+            // Lissitzky: Constructivism
+            drawLissitzky(ctx, w, h, colors, rand) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                
+                for (let i = 0; i < 10; i++) {
+                    const x = rand() * w;
+                    const y = rand() * h;
+                    const size = rand() * 200 + 80;
+                    const color = colors[Math.floor(rand() * colors.length)];
+                    const angle = rand() * Math.PI;
+                    
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(angle);
+                    ctx.fillStyle = color.hex;
+                    ctx.globalAlpha = 0.7;
+                    
+                    const shapeType = Math.floor(rand() * 3);
+                    if (shapeType === 0) {
+                        ctx.fillRect(-size/2, -size/2, size, size * 0.6);
+                    } else if (shapeType === 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, -size/2);
+                        ctx.lineTo(-size/2, size/2);
+                        ctx.lineTo(size/2, size/2);
+                        ctx.closePath();
+                        ctx.fill();
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, size/2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+                
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 8;
+                ctx.globalAlpha = 0.3;
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(rand() * w, 0);
+                    ctx.lineTo(rand() * w, h);
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
             }
             
             downloadImage() {
